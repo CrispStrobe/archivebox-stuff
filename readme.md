@@ -1,10 +1,11 @@
 # Setting up ArchiveBox locally and on VPS with Sync
 
 This is a quick note about how to install [ArchiveBox](https://github.com/ArchiveBox/) on a cloud VPS (like Hetzner vCloud), and synchronize it with one or more local machines using a robust `rsync` and `archivebox init` workflow. This setup provides offline capability and avoids database conflicts.
+It also shows how to make digests of articles in epub format from the archivebox entries, for neater reading.
 
-This tutorial documents a real-world troubleshooting process, solving common issues like permission errors, missing dependencies, and IP blocking, culminating in a flexible multi-master sync solution.
+You could also [involve Wallabag](wallabag.md). Or stick with Wallabag only, if you merely want reading later capability with nice GUI etc, and no versatile archiving.
 
-You could also [involve Wallabag](wallabag.md). Or stick with Wallabag if you merely want reading late capability with nice GUI etc, and no versatile archiving.
+This tutorial documents a bit of trial and troubleshooting process, and notes a few things to keep in mind, like permission errors, missing dependencies, and IP blocking, culminating in a flexible multi-master sync solution.
 
 ## Architecture Overview
 
