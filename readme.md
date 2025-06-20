@@ -4,6 +4,8 @@ This is a quick note about how to install [ArchiveBox](https://github.com/Archiv
 
 This tutorial documents a real-world troubleshooting process, solving common issues like permission errors, missing dependencies, and IP blocking, culminating in a flexible multi-master sync solution.
 
+You could also [involve Wallabag](wallabag.md). Or stick with Wallabag if you merely want reading late capability with nice GUI etc, and no versatile archiving.
+
 ## Architecture Overview
 
 This sets up the following system:
