@@ -544,5 +544,3 @@ You now have a fully functional, secure Wallabag installation with:
 - **Custom domain** that's easy to remember
 - **Automatic certificate renewal** for hands-off maintenance
 - **Mobile app compatibility** without security workarounds
-
-This setup provides a production-ready personal article archiving solution that you can access securely from anywhere!
