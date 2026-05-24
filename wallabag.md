@@ -79,7 +79,8 @@ sleep 15
 ```bash
 # Create wallabag directories
 sudo mkdir -p /path/to/your/storage/wallabag/{data,images}
-sudo chown -R 1000:1000 /path/to/your/storage/wallabag/
+# wallabag container runs as root — dirs must be owned by root
+sudo chown -R root:root /path/to/your/storage/wallabag/
 
 # Run Wallabag with PostgreSQL
 sudo docker run -d \
@@ -779,8 +780,8 @@ chmod +x ~/get_epubs.sh
 
 **Permission issues**: 
 ```bash
-# On NAS
-sudo chown -R 1000:1000 /path/to/your/storage/wallabag/
+# On NAS — wallabag container runs as root, so data dirs must be root-owned
+sudo chown -R root:root /path/to/your/storage/wallabag/
 
 # On VPS
 chown -R your_vps_user:your_vps_user /path/to/your/archivebox/data

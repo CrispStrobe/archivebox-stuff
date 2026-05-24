@@ -99,7 +99,9 @@ cd /opt/wallabag-vps
 sudo mkdir -p {db-data,wallabag-data,wallabag-images,nginx-conf,ssl-certs}
 
 # Set proper permissions
-sudo chown -R 1000:1000 ./wallabag-data ./wallabag-images
+# wallabag container runs as root, so data dirs must be owned by root
+sudo chown -R root:root ./wallabag-data ./wallabag-images
+# PostgreSQL container runs as uid 999
 sudo chown -R 999:999 ./db-data
 ```
 
@@ -473,7 +475,7 @@ sudo fuser -k 80/tcp
 # Then run renewal script
 ```
 
-**Permission errors in container:**
+**Permission errors in container (cache):**
 ```bash
 sudo docker-compose exec wallabag-app sh -c "
 chown -R root:root /var/www/wallabag/var
@@ -481,6 +483,21 @@ chmod -R 777 /var/www/wallabag/var/cache
 php bin/console cache:clear --env=prod
 "
 ```
+
+**`site-credentials-secret-key.txt` permission denied:**
+
+If you see PHP warnings like `file_put_contents(.../site-credentials-secret-key.txt): Failed to open stream: Permission denied`, the `wallabag-data` volume on the host has wrong ownership. The wallabag container runs as root, so the mounted data directory must be owned by root:
+
+```bash
+# Fix on the host
+sudo chown -R root:root /opt/wallabag-vps/wallabag-data/
+sudo chown -R root:root /opt/wallabag-vps/wallabag-images/
+
+# Verify inside the container
+sudo docker-compose exec wallabag-app ls -la /var/www/wallabag/data/
+```
+
+This commonly happens if the directory was initially created with a different user (e.g. `chown 1000:1000`). The fix is immediate — no container restart needed.
 
 **SSL certificate not working:**
 ```bash
