@@ -281,7 +281,8 @@ process_entries() {
             log_message "📥 Found: $title ($url)"
         fi
     done < <(echo "$entries_json" | python3 -c "
-import sys, json
+import sys, json, re
+from urllib.parse import unquote, urlparse, parse_qs
 try:
     data = json.load(sys.stdin)
     entries = data.get('_embedded', {}).get('items', [])
@@ -292,6 +293,14 @@ try:
         # Only process entries that don't have archivebox-sync tag to avoid loops
         tags = [tag.get('label', '') for tag in entry.get('tags', [])]
         if 'archivebox-sync' not in tags:
+            # Unwrap redirect URLs (LinkedIn, etc.)
+            if 'linkedin.com/safety/go' in url:
+                m = re.search(r'[?&]url=([^&]+)', url)
+                if m:
+                    url = unquote(m.group(1))
+            # Skip login-gated pages
+            if 'linkedin.com/uas/login' in url:
+                continue
             print(f'{entry_id}|{url}|{title}')
 except Exception as e:
     pass

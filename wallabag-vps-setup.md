@@ -547,6 +547,26 @@ After completing this tutorial, you should have:
 ✅ **Auto-renewal** configured for SSL certificates  
 ✅ **Mobile app compatibility** without security exceptions  
 
+## ArchiveBox Integration Notes
+
+If you're syncing Wallabag entries to ArchiveBox, note these optimizations:
+
+### Disable wget archiver to save disk space
+
+ArchiveBox's wget archiver downloads all page assets (CSS, fonts, images, scripts) for each URL. A single article can balloon to 50-80 MB due to SVG fonts and theme files. Since ArchiveBox already captures pages via SingleFile (self-contained HTML), PDF, screenshot, and readability, wget is redundant:
+
+```bash
+cd /path/to/your/archivebox/data
+archivebox config --set SAVE_WGET=False
+archivebox config --set SAVE_GIT=False
+```
+
+This reduces per-entry archive size from ~50 MB to ~1-3 MB while keeping all useful content.
+
+### LinkedIn redirect URLs
+
+Wallabag saves `linkedin.com/safety/go/?url=...` wrapper URLs as-is, storing LinkedIn's interstitial page instead of the actual article. The sync script should unwrap these URLs by extracting the `url=` query parameter before feeding to ArchiveBox. See the sync script in `wallabag.md` for the implementation.
+
 ## Additional Resources
 
 - **Wallabag Documentation**: [doc.wallabag.org](https://doc.wallabag.org)
