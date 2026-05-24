@@ -155,11 +155,23 @@ curl -X POST "http://YOUR_NAS_HOSTNAME:8082/api/entries.json" \
 
 ## Part 2: VPS ArchiveBox Setup
 
-### 2.1 Create Reverse Sync Script on VPS
+### 2.1 Create Credentials File and Reverse Sync Script on VPS
 
 ```bash
 # SSH to your VPS
 ssh your_vps_user@YOUR_VPS_IP
+
+# Create a credentials file with restricted permissions
+cat > /home/your_vps_user/.wallabag_sync.env << 'EOF'
+WALLABAG_URL=http://YOUR_NAS_HOSTNAME:8082
+WALLABAG_CLIENT_ID=your_client_id_here
+WALLABAG_CLIENT_SECRET=your_client_secret_here
+WALLABAG_USERNAME=your_admin_username
+WALLABAG_PASSWORD=your_secure_password
+EOF
+
+# IMPORTANT: Restrict permissions so only the owner can read the credentials
+chmod 600 /home/your_vps_user/.wallabag_sync.env
 
 # Create the reverse sync script
 cat > /home/your_vps_user/wallabag_to_archivebox_sync.sh << 'EOF'
@@ -167,13 +179,15 @@ cat > /home/your_vps_user/wallabag_to_archivebox_sync.sh << 'EOF'
 
 # Wallabag to ArchiveBox Reverse Sync Script
 # Runs on VPS to pull new URLs from Wallabag and archive them
+# Credentials are loaded from ~/.wallabag_sync.env (mode 600)
 
-# --- Configuration - UPDATE THESE VALUES ---
-WALLABAG_URL="http://YOUR_NAS_HOSTNAME:8082"
-WALLABAG_CLIENT_ID="your_client_id_here"
-WALLABAG_CLIENT_SECRET="your_client_secret_here"
-WALLABAG_USERNAME="your_admin_username"
-WALLABAG_PASSWORD="your_secure_password"
+# --- Configuration ---
+ENV_FILE="/home/your_vps_user/.wallabag_sync.env"
+if [ ! -f "$ENV_FILE" ]; then
+    echo "ERROR: Credentials file $ENV_FILE not found"
+    exit 1
+fi
+source "$ENV_FILE"
 
 ARCHIVEBOX_DIR="/path/to/your/archivebox/data"
 ARCHIVEBOX_BIN="/path/to/archivebox/binary"
@@ -356,11 +370,12 @@ fi
 log_message "✅ Reverse sync completed successfully"
 EOF
 
-# Make executable and update configuration
+# Make executable
 chmod +x /home/your_vps_user/wallabag_to_archivebox_sync.sh
 
-# IMPORTANT: Edit the script to update all the configuration variables
-# Replace YOUR_NAS_HOSTNAME, credentials, and paths with your actual values
+# IMPORTANT: Edit the .env file with your actual credentials
+# nano /home/your_vps_user/.wallabag_sync.env
+# Also update the paths in the script (ARCHIVEBOX_DIR, ARCHIVEBOX_BIN, etc.)
 ```
 
 ### 2.2 Set Up Automated Reverse Sync
@@ -387,6 +402,16 @@ cat > ~/sync_archivebox_bidirectional.sh << 'EOF'
 
 # Enhanced ArchiveBox ↔ Wallabag Bidirectional Sync Script
 # Handles both directions: ArchiveBox → Wallabag and Wallabag → ArchiveBox
+# Credentials are loaded from ~/.wallabag_sync.env (mode 600)
+
+# --- Load credentials ---
+ENV_FILE="$HOME/.wallabag_sync.env"
+if [ ! -f "$ENV_FILE" ]; then
+    echo "ERROR: Credentials file $ENV_FILE not found"
+    echo "Create it with: WALLABAG_URL, WALLABAG_CLIENT_ID, WALLABAG_CLIENT_SECRET, WALLABAG_USERNAME, WALLABAG_PASSWORD"
+    exit 1
+fi
+source "$ENV_FILE"
 
 # --- Configuration - UPDATE THESE VALUES ---
 LOCAL_DIR="$HOME/path/to/your/local/archivebox/data"
@@ -395,12 +420,6 @@ REMOTE_HOST="YOUR_VPS_IP"
 REMOTE_DIR="/path/to/your/archivebox/data"
 REMOTE_ARCHIVEBOX_BINARY="/path/to/archivebox/binary"
 REVERSE_SYNC_SCRIPT="/home/your_vps_user/wallabag_to_archivebox_sync.sh"
-
-WALLABAG_URL="http://YOUR_NAS_HOSTNAME:8082"
-WALLABAG_CLIENT_ID="your_client_id_here"
-WALLABAG_CLIENT_SECRET="your_client_secret_here"
-WALLABAG_USERNAME="your_admin_username"
-WALLABAG_PASSWORD="your_secure_password"
 
 DAYS_FOR_FORWARD_SYNC=${2:-1}  # How many days back to sync to Wallabag
 
@@ -592,8 +611,19 @@ EOF
 # Make executable
 chmod +x ~/sync_archivebox_bidirectional.sh
 
-# IMPORTANT: Edit the script to update all the configuration variables
-# Replace all placeholder values with your actual settings
+# Create local credentials file (same format as the VPS one)
+cat > ~/.wallabag_sync.env << 'ENVEOF'
+WALLABAG_URL=http://YOUR_NAS_HOSTNAME:8082
+WALLABAG_CLIENT_ID=your_client_id_here
+WALLABAG_CLIENT_SECRET=your_client_secret_here
+WALLABAG_USERNAME=your_admin_username
+WALLABAG_PASSWORD=your_secure_password
+ENVEOF
+chmod 600 ~/.wallabag_sync.env
+
+# IMPORTANT: Edit the .env file with your actual credentials
+# nano ~/.wallabag_sync.env
+# Also update the paths in the script (LOCAL_DIR, REMOTE_HOST, etc.)
 ```
 
 ## Part 4: Mobile Apps Setup
