@@ -675,9 +675,52 @@ Most mobile browsers will show "Share to Wallabag" option once the app is instal
 
 ## Part 6: Advanced Features
 
-### 6.1 EPUB Digest Generation (Optional)
+### 6.1 Calibre Recipe for E-Reader Digest
 
-Add automatic daily digest creation to your VPS:
+You can use [Calibre](https://calibre-ebook.com/) to automatically fetch your unread Wallabag articles and convert them into an EPUB for e-readers. This uses Wallabag's built-in RSS/Atom feed.
+
+**Step 1: Get your Wallabag feed URL**
+
+1. In Wallabag, go to **Settings → Feeds**
+2. Enable the feed and copy the **Unread** feed URL
+3. It will look like: `https://your-wallabag.example.com/feed/username/RANDOM_TOKEN/unread`
+
+The feed URL contains a random token that acts as authentication — anyone with the URL can read your feed. The token has enough entropy (~80+ bits) to be safe from brute force, but treat the URL as a secret. You can regenerate it in Wallabag settings if it leaks.
+
+**Step 2: Create a Calibre recipe**
+
+In Calibre, go to **Fetch news → Add a custom news source** and paste:
+
+```python
+#!/usr/bin/env python
+import time
+from calibre.web.feeds.news import BasicNewsRecipe
+
+class WallabagUnread(BasicNewsRecipe):
+    title = 'Wallabag Unread Articles'
+    oldest_article = 31
+    max_articles_per_feed = 100
+    use_embedded_content = True
+    auto_cleanup = False
+
+    feeds = [
+        ('Wallabag', 'https://your-wallabag.example.com/feed/username/TOKEN/unread'),
+    ]
+
+    def postprocess_book(self, oeb, opts, log):
+        date_str = time.strftime('%Y-%m-%d')
+        oeb.metadata.title = f'Wallabag Unread - {date_str}'
+```
+
+Replace the feed URL with your actual Wallabag feed URL from Step 1.
+
+**Step 3: Schedule (optional)**
+
+Calibre can schedule automatic fetching. Go to **Fetch news → Schedule for download** and set your preferred interval (e.g., daily). The resulting EPUB can be auto-sent to your e-reader via Calibre's email feature.
+
+### 6.2 EPUB Digest Generation via Pandoc (Optional)
+
+An alternative approach using Pandoc on the VPS, generating EPUBs from ArchiveBox's readability content:
 
 ```bash
 # Create digest script on VPS (requires pandoc installation)
