@@ -77,6 +77,10 @@ real = unwrap_linkedin_url(
 
 ## Preventing Future LinkedIn Issues
 
+Two layers of defense:
+
+### 1. Sync script unwrapping
+
 Add URL unwrapping to any Wallabag → ArchiveBox sync script. In the URL extraction step, before adding to the archive queue:
 
 ```python
@@ -93,6 +97,19 @@ if "linkedin.com/safety/go" in entry_url:
 if "linkedin.com/uas/login" in entry_url:
     continue
 ```
+
+This ensures ArchiveBox archives the real URL, but Wallabag still has the broken entry.
+
+### 2. Daily cleanup cron
+
+Schedule the LinkedIn fix script to run daily and repair any new wrapper entries in Wallabag itself:
+
+```bash
+# In crontab (run after daily backup)
+0 4 * * * python3 /path/to/fix_linkedin_urls.py >> /path/to/linkedin_fix.log 2>&1
+```
+
+The script uses `--dry-run` for safe previewing. It queries Wallabag for `domain_name=www.linkedin.com`, finds `safety/go` wrappers, extracts the real URL, deletes the broken entry, and re-adds with the correct URL. Wallabag then fetches the actual article content.
 
 This doesn't fix the entry in Wallabag itself (it still stores the wrapper URL), but ensures ArchiveBox archives the correct page.
 

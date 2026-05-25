@@ -718,7 +718,59 @@ Replace the feed URL with your actual Wallabag feed URL from Step 1.
 
 Calibre can schedule automatic fetching. Go to **Fetch news → Schedule for download** and set your preferred interval (e.g., daily). The resulting EPUB can be auto-sent to your e-reader via Calibre's email feature.
 
-### 6.2 EPUB Digest Generation via Pandoc (Optional)
+### 6.2 Markdown Export of All Entries
+
+Export all Wallabag entries as clean Markdown files with YAML frontmatter. Uses pandoc for high-quality HTML→Markdown conversion with a basic regex fallback.
+
+Features:
+- **Resumable**: tracks exported IDs in a state file, skips already-exported entries on restart
+- **Fallback chain**: pandoc → basic regex converter → raw text strip
+- **Frontmatter**: title, URL, domain, date, tags, reading time, wallabag ID
+
+```bash
+# Install pandoc
+sudo apt install -y pandoc
+
+# Run the export (see export_wallabag_md.py in the private repo)
+# Credentials loaded from ~/.wallabag_sync.env
+# Output: /mnt/storage/wallabag-markdown-export/{id}_{slug}.md
+python3 /path/to/export_wallabag_md.py
+```
+
+Output format:
+```markdown
+---
+title: "Article Title"
+url: "https://example.com/article"
+domain: "example.com"
+saved: 2026-05-24
+wallabag_id: 1234
+reading_time: 5
+tags: ["pocket-import"]
+archived: true
+---
+
+Article content in clean markdown...
+```
+
+The export can run while Wallabag is actively importing — it handles growing entry counts gracefully.
+
+### 6.3 Automatic LinkedIn URL Cleanup
+
+LinkedIn share URLs (`linkedin.com/safety/go/?url=...`) save LinkedIn's interstitial page instead of the actual article. Schedule a daily cleanup cron that finds and fixes these entries:
+
+```bash
+# Run daily at 4 AM (see fix_linkedin_urls.py in the private repo)
+0 4 * * * python3 /path/to/fix_linkedin_urls.py >> /path/to/linkedin_fix.log 2>&1
+```
+
+The script:
+1. Queries Wallabag API for entries with `domain_name=www.linkedin.com`
+2. Finds `safety/go` wrapper URLs, extracts the real URL from the `url=` query parameter
+3. Deletes the broken entry and re-adds with the correct URL
+4. Supports `--dry-run` for previewing changes
+
+### 6.4 EPUB Digest Generation via Pandoc (Optional)
 
 An alternative approach using Pandoc on the VPS, generating EPUBs from ArchiveBox's readability content:
 
@@ -977,27 +1029,64 @@ For accessing Wallabag from outside your home network:
 
 ## Part 9: Backup and Recovery
 
-### 9.1 Complete System Backup
+### 9.1 Automated Tiered Backup
 
-**NAS Wallabag Data**:
+Set up a daily backup script with tiered retention to a storage box or external mount:
+
 ```bash
-# Backup Wallabag data and database
-sudo docker exec wallabag-db pg_dump -U wallabag wallabag > wallabag_backup_$(date +%Y%m%d).sql
-tar -czf wallabag_data_$(date +%Y%m%d).tar.gz /path/to/your/storage/wallabag/
+#!/bin/bash
+# /root/backup-to-storage.sh
+# Retention: daily 7 days, weekly 3 months, monthly 2 years
+
+DAILY_DIR="/mnt/storage/backups/daily"
+WEEKLY_DIR="/mnt/storage/backups/weekly"
+MONTHLY_DIR="/mnt/storage/backups/monthly"
+DATE=$(date +%Y%m%d)
+DOW=$(date +%u)    # 1=Monday, 7=Sunday
+DOM=$(date +%d)    # day of month
+
+mkdir -p "$DAILY_DIR" "$WEEKLY_DIR" "$MONTHLY_DIR"
+
+# Wallabag Postgres dump
+docker exec wallabag-db pg_dump -U wallabag wallabag > "$DAILY_DIR/wallabag_${DATE}.sql"
+
+# ArchiveBox SQLite index
+cp /path/to/archivebox/data/index.sqlite3 "$DAILY_DIR/archivebox_${DATE}.sqlite3"
+
+# Config files
+cp /path/to/archivebox/data/ArchiveBox.conf "$DAILY_DIR/ArchiveBox_${DATE}.conf"
+cp /opt/wallabag-vps/docker-compose.yml "$DAILY_DIR/docker-compose_${DATE}.yml"
+cp /opt/wallabag-vps/nginx-conf/default.conf "$DAILY_DIR/nginx_${DATE}.conf"
+
+# Weekly copy (every Sunday)
+[ "$DOW" -eq 7 ] && cp "$DAILY_DIR"/*_${DATE}.* "$WEEKLY_DIR/"
+
+# Monthly copy (1st of month)
+[ "$DOM" -eq "01" ] && cp "$DAILY_DIR"/*_${DATE}.* "$MONTHLY_DIR/"
+
+# Prune
+find "$DAILY_DIR" -type f -mtime +7 -delete
+find "$WEEKLY_DIR" -type f -mtime +90 -delete
+find "$MONTHLY_DIR" -type f -mtime +730 -delete
 ```
 
-**VPS ArchiveBox Data**:
+Schedule via cron:
 ```bash
-# On VPS - backup entire ArchiveBox directory
-cd /home/your_vps_user
-tar -czf archivebox_backup_$(date +%Y%m%d).tar.gz path/to/archivebox/data/
+# Daily at 3:30 AM
+30 3 * * * /root/backup-to-storage.sh
 ```
 
-**Local ArchiveBox Data**:
+### 9.2 Manual Backup
+
 ```bash
-# On local machine - backup ArchiveBox
-cd ~/path/to/your/local/archivebox
-tar -czf archivebox_local_backup_$(date +%Y%m%d).tar.gz data/
+# Wallabag database
+docker exec wallabag-db pg_dump -U wallabag wallabag > wallabag_backup_$(date +%Y%m%d).sql
+
+# ArchiveBox index
+cp /path/to/archivebox/data/index.sqlite3 archivebox_backup_$(date +%Y%m%d).sqlite3
+
+# ArchiveBox archive files (if not on external storage already)
+tar -czf archivebox_archive_$(date +%Y%m%d).tar.gz /path/to/archivebox/data/archive/
 ```
 
 ### 9.2 Recovery Procedures
